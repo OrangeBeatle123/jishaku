@@ -152,6 +152,32 @@ class PythonFeature(Feature):
 
         finally:
             scope.clear_intersection(arg_dict)
+            
+    @commands.command(name="eval", aliases=["ev"])
+    async def eval_cmd(self, ctx: commands.Context, *, argument: codeblock_converter):
+        """
+        Direct evaluation of Python code.
+        """
+
+        arg_dict = get_var_dict_from_ctx(ctx, Flags.SCOPE_PREFIX)
+        arg_dict["_"] = self.last_result
+
+        scope = self.scope
+
+        try:
+            async with ReplResponseReactor(ctx.message):
+                with self.submit(ctx):
+                    executor = AsyncCodeExecutor(argument.content, scope, arg_dict=arg_dict)
+                    async for send, result in AsyncSender(executor):
+                        if result is None:
+                            continue
+
+                        self.last_result = result
+
+                        send(await self.jsk_python_result_handling(ctx, result))
+
+        finally:
+            scope.clear_intersection(arg_dict) 
 
     @Feature.Command(parent="jsk", name="py_inspect", aliases=["pyi", "python_inspect", "pythoninspect"])
     async def jsk_python_inspect(self, ctx: commands.Context, *, argument: codeblock_converter):  # pylint: disable=too-many-locals
