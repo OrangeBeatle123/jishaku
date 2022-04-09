@@ -34,7 +34,7 @@ class FilesystemFeature(Feature):
     __cat_line_regex = re.compile(r"(?:\.\/+)?(.+?)(?:#L?(\d+)(?:\-L?(\d+))?)?$")
 
     @Feature.Command(parent="jsk", name="cat")
-    async def jsk_cat(self, ctx: commands.Context, argument: str):  # pylint: disable=too-many-locals
+    async def jsk_cat(self, ctx: commands.Context, argument: str):
         """
         Read out a file, using syntax highlighting if detected.
 
@@ -84,7 +84,7 @@ class FilesystemFeature(Feature):
                             fp=file
                         ))
                 else:
-                    paginator = WrappedFilePaginator(file, line_span=line_span, max_size=1985)
+                    paginator = WrappedFilePaginator(file, line_span=line_span, max_size=1980)
                     interface = PaginatorInterface(ctx.bot, paginator, owner=ctx.author)
                     await interface.send_to(ctx)
         except UnicodeDecodeError:
@@ -132,7 +132,7 @@ class FilesystemFeature(Feature):
                 ))
             else:
                 try:
-                    paginator = WrappedFilePaginator(io.BytesIO(data), language_hints=hints, max_size=1985)
+                    paginator = WrappedFilePaginator(io.BytesIO(data), language_hints=hints, max_size=1980)
                 except UnicodeDecodeError:
                     return await ctx.send(f"Couldn't determine the encoding of the response. (status code {code})")
                 except ValueError as exc:

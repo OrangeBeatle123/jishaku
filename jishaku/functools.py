@@ -13,10 +13,20 @@ Function-related tools for Jishaku.
 
 import asyncio
 import functools
+import sys
 import typing
 
+# pylint: disable=invalid-name
+T = typing.TypeVar('T')
 
-def executor_function(sync_function: typing.Callable):
+if sys.version_info < (3, 10):
+    from typing_extensions import ParamSpec
+    P = ParamSpec('P')
+else:
+    P = typing.ParamSpec('P')  # pylint: disable=no-member
+
+
+def executor_function(sync_function: typing.Callable[P, T]) -> typing.Callable[P, typing.Awaitable[T]]:
     """A decorator that wraps a sync function in an executor, changing it into an async function.
 
     This allows processing functions to be wrapped and used immediately as an async function.

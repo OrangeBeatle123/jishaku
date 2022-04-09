@@ -42,7 +42,7 @@ class WrappedPaginator(commands.Paginator):
     wrap_on: tuple
         A tuple of wrapping delimiters.
     include_wrapped: bool
-        Whether to include the delimiter at the start of the new wrapped line.
+        Whether to include the delimiter at the end of a wrapped line.
     force_wrap: bool
         If this is True, lines will be split at their maximum points should trimming not be possible
         with any provided delimiter.
@@ -54,40 +54,49 @@ class WrappedPaginator(commands.Paginator):
         self.include_wrapped = include_wrapped
         self.force_wrap = force_wrap
 
-    def add_line(self, line='', *, empty=False):
-        true_max_size = self.max_size - self._prefix_len - self._suffix_len - 2
-        original_length = len(line)
+    def add_line(self, line: str = '', *, empty: bool = False):
+        true_max_size = self.max_size - self._prefix_len - self._suffix_len - 2 * self._linesep_len
+        start = 0
+        needle = 0
+        last_delimiter = -1
+        last_space = -1
 
-        while len(line) > true_max_size:
-            search_string = line[0:true_max_size - 1]
-            wrapped = False
-
-            for delimiter in self.wrap_on:
-                position = search_string.rfind(delimiter)
-
-                if position > 0:
-                    super().add_line(line[0:position], empty=empty)
-                    wrapped = True
-
-                    if self.include_wrapped:
-                        line = line[position:]
+        while needle < len(line):
+            if needle - start >= true_max_size:
+                if last_delimiter != -1:
+                    if self.include_wrapped and line[last_delimiter] != '\n':
+                        super().add_line(line[start:last_delimiter + 1])
+                        needle = last_delimiter + 1
+                        start = last_delimiter + 1
                     else:
-                        line = line[position + len(delimiter):]
-
-                    break
-
-            if not wrapped:
-                if self.force_wrap:
-                    super().add_line(line[0:true_max_size - 1])
-                    line = line[true_max_size - 1:]
+                        super().add_line(line[start:last_delimiter])
+                        needle = last_delimiter + 1
+                        start = last_delimiter + 1
+                elif last_space != -1:
+                    super().add_line(line[start:last_space])
+                    needle = last_space + 1
+                    start = last_space
                 else:
-                    raise ValueError(
-                        f"Line of length {original_length} had sequence of {len(line)} characters"
-                        f" (max is {true_max_size}) that WrappedPaginator could not wrap with"
-                        f" delimiters: {self.wrap_on}"
-                    )
+                    super().add_line(line[start:needle])
+                    start = needle
 
-        super().add_line(line, empty=empty)
+                last_delimiter = -1
+                last_space = -1
+
+            if line[needle] in self.wrap_on:
+                last_delimiter = needle
+            elif line[needle] == ' ':
+                last_space = needle
+
+            needle += 1
+
+        last_line = line[start:needle]
+        if last_line:
+            super().add_line(last_line)
+
+        if empty:
+            self._current_page.append('')
+            self._count += self._linesep_len
 
 
 class FilePaginator(commands.Paginator):
@@ -155,5 +164,10 @@ def use_file_check(ctx: commands.Context, size: int) -> bool:
     return all([
         size < 50_000,  # Check the text is below the Discord cutoff point;
         not Flags.FORCE_PAGINATOR,  # Check the user hasn't explicitly disabled this;
-        (not ctx.author.is_on_mobile() if ctx.guild and ctx.bot.intents.presences else True)  # Ensure the user isn't on mobile
+        (
+            # Ensure the user isn't on mobile
+            not ctx.author.is_on_mobile()
+            if ctx.guild and ctx.bot.intents.presences and isinstance(ctx.author, discord.Member)
+            else True
+        )
     ])
